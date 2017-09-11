@@ -1,5 +1,7 @@
 package fr.aphp.wind.i2b2fhir.resource;
 
+import java.util.Date;
+
 public class FhirProfiledResourceBuilder {
 	private String resourceName;
 	private String profileResourceName;
@@ -11,6 +13,8 @@ public class FhirProfiledResourceBuilder {
 	private String fhirSearchQuery;
 	private boolean hasProxy = false;
 	private Integer fhirDstuVersion = 3;
+	private Date happensBeforeDate;
+	private Date happensAfterDate;
 	
 	public FhirProfiledResourceBuilder withResourceName(String str){
 		this.resourceName = str;  
@@ -59,12 +63,26 @@ public class FhirProfiledResourceBuilder {
 		return this;
 	}
 	
+	public FhirProfiledResourceBuilder withHappensBeforeDate(Date i){
+		this.happensBeforeDate = i;  
+		return this;
+	}
+	
+	public FhirProfiledResourceBuilder withHappensAfterDate(Date i){
+		this.happensAfterDate = i;  
+		return this;
+	}
+	
 	public FhirProfiledResource build(){
 		FhirProfiledResource fpr = new FhirProfiledResource();
 		fpr.setResourceName(this.resourceName);
 		if(this.profileResourceName==null){//optionnal profiled
 			this.profileResourceName = this.resourceName;
 		}
+		//https://www.hl7.org/fhir/search.html#prefix
+		//date format(=xml format): yyyy-mm-ddThh:mm:ss[Z|(+|-)hh:mm]
+		fpr.setHappensAfterDate(happensAfterDate);
+		fpr.setHappensBeforeDate(happensBeforeDate);
 		fpr.setProfileResourceName(this.profileResourceName);
 		fpr.setFhirApiHost(this.fhirApiHost);
 		fpr.setFhirApiPagination(this.fhirApiPagination);

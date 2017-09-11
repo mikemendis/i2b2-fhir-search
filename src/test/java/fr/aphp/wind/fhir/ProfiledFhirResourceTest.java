@@ -2,6 +2,10 @@ package fr.aphp.wind.fhir;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Date;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 import org.apache.log4j.Logger;
 
@@ -58,12 +62,21 @@ public class ProfiledFhirResourceTest extends TestCase {
 	}
 	
 	public void testEncounter() throws UnirestException, FileNotFoundException, IOException {
+		Date date = null;
+		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		try {
+		   date =  formatter.parse("2014-05-28 11:22:37");
+		} catch (ParseException e) {
+		  e.printStackTrace();
+		}
 		FhirProfiledResource prf = new FhirProfiledResourceBuilder()
 				.withFhirApiHost("http://fhirtest.uhn.ca/baseDstu3/")
 				.withFhirDstuVersion(3)
 				.withProfileResourceName("Encounter")
 				.withResourceName("Encounter")
-				.withFhirSearchQuery("date=gt2014-05-28&date=lt2014-05-28")
+			    .withFhirSearchQuery("status=finished")
+				.withHappensBeforeDate(date)
+				.withHappensAfterDate(date)
 				.withI2b2SetType("encounterSet")
 				.build();
 		prf.collectResult();
@@ -86,9 +99,7 @@ public class ProfiledFhirResourceTest extends TestCase {
 				//.withProfileResourceName("Observation")
 				.withResourceName("Observation")
 				.withFhirSearchQuery("code=29463-7&value-quantity=21")
-				.withI2b2SetType("dateSet")
-				
-				.build();
+				.withI2b2SetType("dateSet") .build();
 		prf.collectResult();
 
 		logger.error(String.format("[Observation] %s", prf.toCsv()));

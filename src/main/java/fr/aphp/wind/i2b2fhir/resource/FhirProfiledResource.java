@@ -3,14 +3,10 @@ package fr.aphp.wind.i2b2fhir.resource;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 import org.apache.http.HttpHost;
 import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -18,9 +14,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import com.joestelmach.natty.DateGroup;
-import com.joestelmach.natty.ParseLocation;
-import com.joestelmach.natty.Parser;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
@@ -47,6 +40,8 @@ public class FhirProfiledResource {
 	private ConfigFhirResource configFhirResource = new ConfigFhirResource();
 	private I2b2SetList i2b2SetList = new I2b2SetList();
 	private Integer fhirDstuVersion;
+	private Date happensBeforeDate;
+	private Date happensAfterDate;
 
 	public boolean isHasProxy() {
 		return hasProxy;
@@ -131,13 +126,42 @@ public class FhirProfiledResource {
 	public void setI2b2SetList(I2b2SetList i2b2SetList) {
 		this.i2b2SetList = i2b2SetList;
 	}
-	
+
 	public Integer getFhirDstuVersion() {
 		return fhirDstuVersion;
 	}
 
 	public void setFhirDstuVersion(Integer fhirDstuVersion) {
 		this.fhirDstuVersion = fhirDstuVersion;
+	}
+
+	public void setHappensBeforeDate(Date happensBeforeDate) {
+		this.happensBeforeDate = happensBeforeDate;
+	}
+
+	public void setHappensAfterDate(Date happensAfterDate) {
+		this.happensAfterDate = happensAfterDate;
+	}
+
+	private String createFhirSearchQuery() {
+		String tmp = "";
+		if(this.fhirSearchQuery != null){
+		tmp += "&" + this.fhirSearchQuery ;  	
+		}
+		return tmp;
+	}
+
+	private String createDateFilterString() {
+		String tmp = "";
+		DateTimeFormatter fmt = ISODateTimeFormat.dateTime();
+		;
+		if (this.happensBeforeDate != null) {
+			tmp += "&date=" + "lt" + fmt.print(new DateTime(this.happensBeforeDate));
+		}
+		if (this.happensAfterDate != null) {
+			tmp += "&date=" + "gt" + fmt.print(new DateTime(this.happensAfterDate));
+		}
+		return tmp;
 	}
 
 	private String getElementQuery() {
@@ -155,7 +179,7 @@ public class FhirProfiledResource {
 			str += this.configFhirResource.getEncounterUriField();
 			str += ",";
 			str += this.configFhirResource.getInstanceUriField();
-		}else if (this.i2b2SetType.equals("dateSet")) {
+		} else if (this.i2b2SetType.equals("dateSet")) {
 			str += this.configFhirResource.getPatientUriField();
 			str += ",";
 			str += this.configFhirResource.getEncounterUriField();
@@ -166,7 +190,7 @@ public class FhirProfiledResource {
 		}
 		return str;
 	}
-	
+
 	public void collectResult() throws UnirestException {
 		configFhirPath();
 		if (this.hasProxy) {
@@ -174,12 +198,11 @@ public class FhirProfiledResource {
 		}
 		boolean hasResult = true;
 
-		String query = this.fhirApiHost 
-				+ this.profileResourceName + "?" 
-				+ this.getElementQuery() 
-				+ "&" + this.fhirSearchQuery 
-				+ "&_count=" + this.fhirApiPagination 
-				+ "&_pretty=false";
+		String query = this.fhirApiHost + this.profileResourceName + "?" 
+		+ this.getElementQuery() 
+		+ this.createFhirSearchQuery()
+		+ this.createDateFilterString() 
+		+ "&_count=" + this.fhirApiPagination + "&_pretty=false";
 		while (hasResult) {
 			logger.info(String.format("FHIR query: %s", query));
 
@@ -194,7 +217,7 @@ public class FhirProfiledResource {
 					i2b2SetList.addResult(collectEncounterList(entry));
 				} else if (this.i2b2SetType.equals("instanceSet")) {
 					i2b2SetList.addResult(collectInstanceList(entry));
-				}else if (this.i2b2SetType.equals("dateSet")) {
+				} else if (this.i2b2SetType.equals("dateSet")) {
 					i2b2SetList.addResult(collectDateList(entry));
 				}
 			}
@@ -210,7 +233,7 @@ public class FhirProfiledResource {
 		try {
 			ObjectMapper mapper = new ObjectMapper();
 			JsonNode json = new ObjectMapper().readTree(new File("fhir.conf"));
-			JsonNode dstu = json.get("dstu"+this.fhirDstuVersion);
+			JsonNode dstu = json.get("dstu" + this.fhirDstuVersion);
 			JsonNode resource = dstu.get(this.resourceName);
 			mapper.readerForUpdating(configFhirResource).readValue(resource);
 		} catch (JsonProcessingException e) {
@@ -260,20 +283,20 @@ public class FhirProfiledResource {
 		}
 		return r;
 	}
-	
+
 	private DateSetImpl collectDateList(Object entry) {
 		InstanceSetImpl i = collectInstanceList(entry);
 		DateSetImpl r = new DateSetImpl();
-		String instanceId = null ;
+		String instanceId = null;
 		try {
 			instanceId = JsonPath.read(entry, this.configFhirResource.getDatePath());
 			r.setPatientUri(i.getPatientUri());
 			r.setEncounterUri(i.getEncounterUri());
 			r.setInstanceUri(i.getInstanceUri());
-			//workaround datetime: problem of date encoding
+			// workaround datetime: problem of date encoding
 			r.setDate(instanceId.substring(0, 19));
 		} catch (Exception e) {
-			logger.error(String.format("Does not have any Instance id: [%s]",  instanceId.toString()));
+			logger.error(String.format("Does not have any Instance id: [%s]", instanceId.toString()));
 		}
 		return r;
 	}

@@ -32,8 +32,10 @@ FhirProfiledResource prf = new FhirProfiledResourceBuilder()
 .withFhirProxyHost("my.proxy")//Optionnal
 .withFhirProxyPort(myport)//Optionnal
 .withResourceName("Observation")// Required
-.withProfileResourceName("Observation")//Optionnal - if using a profiled resource
-.withFhirSearchQuery("code=29463-7&value-quantity=21")//
+.withHappensBeforeDate(java.util.Date) // Optionnal; filter based on date
+.withHappensAfterDate(java.util.Date) // Optionnal; filter based on date
+.withProfileResourceName("ObservationAphp")//Optionnal - if using a profiled resource
+.withFhirSearchQuery("code=29463-7&value-quantity=21")//OPTIONNAL
 .withI2b2SetType("dateSet")//one of [patientSet, encounterSet, instanceSet, dateSet]
 .build();
 prf.collectResult();
@@ -48,7 +50,60 @@ for( I2b2Set encSet : myResultSet){//iterate over the result set
 }
 ```
 
-## Pakage
+## Example
+
+```java
+Date date = null;
+DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+try {
+	date =  formatter.parse("2014-05-28");
+} catch (ParseException e) {
+	e.printStackTrace();
+}
+FhirProfiledResource prf = new FhirProfiledResourceBuilder()
+	.withFhirApiHost("http://fhirtest.uhn.ca/baseDstu3/")
+        .withFhirDstuVersion(3)
+	.withProfileResourceName("Encounter")
+	.withResourceName("Encounter")
+	.withFhirSearchQuery("status=finished")
+	.withHappensBeforeDate(date)
+        .withHappensAfterDate(date)
+	.withI2b2SetType("encounterSet")
+	.build();
+prf.collectResult();
+
+logger.info(String.format("[Encounter] %s", prf.toCsv()));
+for( I2b2Set encSet : prf.getI2b2SetList()){
+	System.out.println(encSet.getPatientUri());
+	System.out.println(encSet.getEncounterUri());
+}
+//2017-09-09 09:16:25 INFO FhirProfiledResource:207 - FHIR query: http://fhirtest.uhn.ca/baseDstu3/Encounter?&_element=subject,identifier&status=finished&date=lt2014-05-28T00:00:00.000+02:00&date=gt2014-05-28T00:00:00.000+02:00&_count=500&_pretty=false
+//77274
+//77302
+//189211
+//189239
+//187309
+//187354
+//174603
+//174665
+//155637
+//155711
+//155009
+//155072
+//a9dcaa46-91eb-4882-a915-276af2280c46
+//f3d51fc2-063d-46b9-a43d-ae1db2a83a86
+//152090
+//152167
+//5ad64836-8a7f-4484-a8a1-9e3b2e875ac2
+//fda84825-44d1-4aba-8011-9b2ff3bb6e30
+//d2280b9b-7e4d-4995-a321-9dfdf7810dbc
+//f4ac6a8b-5a28-4b02-8864-7c5b8ec11aa0
+//522fb4c3-ec64-4b17-8736-817bd9fd72d8
+//590d92c6-e29f-435a-a90f-b0dd99ccce93
+```
+
+
+## Pakage:
 
 - mvn assembly:single -DdescriptorId=jar-with-dependencies
 

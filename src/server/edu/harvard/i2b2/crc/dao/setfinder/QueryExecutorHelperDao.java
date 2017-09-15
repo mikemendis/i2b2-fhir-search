@@ -294,7 +294,7 @@ public class QueryExecutorHelperDao extends CRCDAO {
 			while (count < sqls.length) {
 				singleSql = sqls[count++];
 				if (singleSql != null && singleSql.trim().length() > 10) {
-					log.info("Executing setfinder query sql [" + singleSql + "]"
+					log.debug("Executing setfinder query sql [" + singleSql + "]"
 							+ " for query instance= " + queryInstanceId);
 					logTimingUtil.setStartTime();
 					if (this.queryWithoutTempTableFlag == false) { 

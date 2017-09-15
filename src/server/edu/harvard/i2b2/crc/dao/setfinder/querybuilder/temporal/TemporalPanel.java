@@ -11,6 +11,7 @@
 package edu.harvard.i2b2.crc.dao.setfinder.querybuilder.temporal;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -2143,25 +2144,17 @@ public class TemporalPanel implements Comparable<Object> {
 		return dateConstrainUtil.buildPanelDateSql(basePanel, tableAlias);
 	}
 
-	public String getToDate()
+	public Date getToDate()
 	{
 		if (basePanel.getPanelDateTo() != null)
-		return basePanel.getPanelDateTo().getValue().getYear() 
-				+ "-"
-				+ basePanel.getPanelDateTo().getValue().getMonth()
-				+ "-"
-				+ basePanel.getPanelDateTo().getValue().getDay();
+			return basePanel.getPanelDateTo().getValue().toGregorianCalendar().getTime();
 		else return null;
 	}
 
-	public String getFromDate()
+	public Date getFromDate()
 	{
 		if (basePanel.getPanelDateFrom() != null)
-		return basePanel.getPanelDateFrom().getValue().getYear() 
-				+ "-"
-				+ basePanel.getPanelDateFrom().getValue().getMonth()
-				+ "-"
-				+ basePanel.getPanelDateFrom().getValue().getDay();
+		return basePanel.getPanelDateFrom().getValue().toGregorianCalendar().getTime();
 		else return null;
 	}
 	/**

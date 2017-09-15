@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +70,7 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 	private String patient_ide_sources = null;//for dynamically limiting result pid_set
 	private int page_size = 100000;
 	I2b2SetList pidSet = null;
-	
+
 	protected List<ItemType> itemList = new ArrayList<ItemType>();
 
 	public TemporalPanelFHIRQueryItem(TemporalPanel parent, ItemType item) 
@@ -94,17 +95,45 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 	@Override
 	protected String buildSql() throws I2B2DAOException {
 
-		
-		
+
+
 		Connection manualConnection = null;
 		PreparedStatement ps = null;
-		
+
+		conceptType = null;
+		//if (conceptType==null){
+		conceptType = getConceptType();
+		//}
+		if (conceptType != null) {
+			if (conceptType.getTotalnum() != null) {
+				conceptTotal = conceptType.getTotalnum();
+			}
+			factTableColumn = conceptType.getFacttablecolumn();
+			tableName = conceptType.getTablename();
+			dimCode = conceptType.getDimcode();
+			operator = conceptType.getOperator();
+			columnName = conceptType.getColumnname();
+			metaDataXml = conceptType.getMetadataxml();
+			//OMOP addition
+			parseFactColumn(factTableColumn);
+
+
+
+			//if ((operator!=null)&& 
+			//		(operator.toUpperCase().equals("LIKE"))&&
+			//		(dimCode!=null)  && (parent.getServerType().equalsIgnoreCase("POSTGRESQL")))
+			//{
+			//}
+
+		}
+		/*		
 		conceptType = new ConceptType();
 		conceptType.setColumnname(" result_instance_id ");
 		conceptType.setOperator(" = ");
 		conceptType.setFacttablecolumn(" patient_num ");
 		conceptType.setTablename("qt_patient_set_collection ");
 		conceptType.setDimcode(resultInstanceId);
+		 */
 		try {
 			super.parseItem();
 		} catch (I2B2Exception e) {
@@ -117,47 +146,6 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 			return super.buildSql();
 		}
 		else{
-
-			try {
-				QueryProcessorUtil qpUtil = QueryProcessorUtil.getInstance();
-
-				SecurityType s = new PMServiceAccountUtil().getServiceSecurityType( parent.getRequestorSecurityType().getDomain());
-
-		        ConfigureType useronfigure = CallPMUtil.getUserConfigure(s, qpUtil.getProjectManagementCellUrl(), this.domain, projId, "CRC");
-
-		        if (useronfigure == null)
-		                return null;
-
-			    CellDataType cellData = CallPMUtil.getCellForProject(useronfigure.getCellDatas(), "FHIR");
-
-				String sql = "select concept_cd from "
-						+ this.getDbSchemaName()
-						+ "concept_dimension  where concept_path like ?)";
-				
-				manualConnection = createConnection(dataSourceLookup);
-				ps = manualConnection.prepareStatement(sql);
-				ps.setString(1, item.getItemKey());
-	ResultSet rs = ps.executeQuery(sql);
-				
-		while (rs.next()){
-				pidSet = callFHIRUsingQueryDef(cellData.getUrl(), rs.getString(0));
-		}
-			} catch (AxisFault e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (I2B2Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (JAXBUtilException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (UnirestException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 			String query = "CREATE  TABLE " + TEMP_TABLE + " ( "
 					+ " patient_ide varchar(200), " + " PATIENT_ide_source varchar(50))<*>";
 
@@ -174,40 +162,118 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 						+ "#fhir_temp_table (patient_ide,patient_ide_source)\n<*>\n";
 
 			}
-			for( I2b2Set t : pidSet){
-					
-				query += "insert into " + TEMP_TABLE +" (PATIENT_ide,PATIENT_IDE_SOURCE) values ('"+t.getPatientUri()+"','FHIR')<*>";
-				}
 
-			
+			try {
+				QueryProcessorUtil qpUtil = QueryProcessorUtil.getInstance();
+
+				SecurityType s = new PMServiceAccountUtil().getServiceSecurityType( parent.getRequestorSecurityType().getDomain());
+
+				ConfigureType useronfigure = CallPMUtil.getUserConfigure(s, qpUtil.getProjectManagementCellUrl(), this.domain, projId, "CRC");
+
+				if (useronfigure == null)
+					return null;
+
+				CellDataType cellData = CallPMUtil.getCellForProject(useronfigure.getCellDatas(), "FHIR");
+
+
+				dimCode = dimCode.replaceAll("\\\\", "\\\\\\\\");
+
+				String sql = "select concept_cd from "
+						+ this.getDbSchemaName()
+						+ "concept_dimension  where concept_path like " + dimCode;
+
+
+				manualConnection = createConnection(dataSourceLookup);
+				ps = manualConnection.prepareStatement(sql);
+				//				ps.setString(1,  dimCode);
+				ResultSet rs = ps.executeQuery();
+
+				//int patient_num = 1000000005;
+				while (rs.next()){
+					String concept_cd = rs.getString(1);
+					if (concept_cd.contains("."))
+						concept_cd = concept_cd.substring(concept_cd.lastIndexOf('.') + 1);
+					pidSet = callFHIRUsingQueryDef(cellData.getUrl(), concept_cd);
+
+					log.info("Got " + pidSet.getSetList().size() + " patients from " + concept_cd);
+					for( I2b2Set t : pidSet){
+						/*						try {
+						ps = manualConnection.prepareStatement("insert into patient_mapping (patient_ide, patient_ide_source, patient_num, patient_ide_status, project_id) values ('" + t.getPatientUri()+"','FHIR',"
+								+ patient_num + ",'A','@');");
+						ps.execute();
+						patient_num++;
+						} catch (Exception e)
+						{
+							e.printStackTrace();
+						}
+						 */
+						query += "insert into " + TEMP_TABLE +" (PATIENT_ide,PATIENT_IDE_SOURCE) values ('"+t.getPatientUri()+"','FHIR')<*>";
+					}
+
+				}
+			} catch (AxisFault e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (I2B2Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (JAXBUtilException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (UnirestException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+
+
 			if (dataSourceLookup.getServerType().equals(DAOFactoryHelper.ORACLE)) {
 				query += "--endcreate select distinct  a.patient_num, 0 from patient_mapping a, " + TEMP_TABLE + " b where  a.patient_ide = b.patient_ide and a.patient_ide_source = b.patient_ide_source";
 			} else if (dataSourceLookup.getServerType().equalsIgnoreCase(DAOFactoryHelper.SQLSERVER) ||
 					dataSourceLookup.getServerType().equalsIgnoreCase(DAOFactoryHelper.POSTGRESQL)) { 
 				query += "--endcreate select distinct  a.patient_num, 0 from patient_mapping a, " + TEMP_TABLE + " b where  a.patient_ide = b.patient_ide and a.patient_ide_source = b.patient_ide_source ";
 			}
-				return query;
+			return query;
 		}
 
 
 	}
 
-
 	private I2b2SetList callFHIRUsingQueryDef(String url, String code) throws I2B2Exception, JAXBUtilException, AxisFault, UnirestException {
-		
 
-//"birthdate=1974-12-24"
+
+		//http://fhirtest.uhn.ca/baseDstu3/Patient?&_element=identifier&birthdate&date=lt1979-12-01T00:00:00.000-05:00&_count=500&_pretty=false
+		//"birthdate=1974-12-24"
 		CallFHIRUtil crcUtil = new CallFHIRUtil(url, projId, this.patient_ide_sources, page_size);
 
 		if (item == null)
 			return null;
-	    String searchQuery = code;
+		String searchQuery = code.toLowerCase();
 
-	    if (parent.hasPanelDateConstraint())
-	    {
-	    	searchQuery += "=" + parent.getFromDate();
-	    }
-		return crcUtil.callQueryDefinionType(searchQuery ,"patientSet");
+		Date fromDate= parent.getFromDate();
+		Date toDate = parent.getToDate();
+
+		if (item.getConstrainByDate() != null)
+		{
+			for (ConstrainByDate timeDate: item.getConstrainByDate()) {
+				if (timeDate.getDateFrom() != null)
+					fromDate =  timeDate.getDateFrom().getValue().toGregorianCalendar().getTime();
+				if (timeDate.getDateTo() != null)
+					toDate = timeDate.getDateTo().getValue().toGregorianCalendar().getTime();
+			}			
+		}
+		if (returnInstanceNum()||
+				hasItemDateConstraint()||
+				hasPanelDateConstraint()||
+				hasValueConstraint()||
+				hasPanelOccurrenceConstraint()) 
+			return crcUtil.callQueryDefinionType(searchQuery ,"patientSet",toDate, fromDate);
+		else
+			return crcUtil.callQueryDefinionType(searchQuery ,"encounterSet",toDate, fromDate);
+
 	}
 
 
@@ -230,24 +296,24 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 
 	private Connection createConnection( DataSourceLookup dsLookup )
 			throws Exception {
-	
-	Connection manualConnection = null;	
-	
-	
-	try {
-	
-		manualConnection = ServiceLocator.getInstance()
-				.getAppServerDataSource(dsLookup.getDataSource())
-				.getConnection();
-	
-		
-	} catch (Exception ex) {
-		throw ex;
+
+		Connection manualConnection = null;	
+
+
+		try {
+
+			manualConnection = ServiceLocator.getInstance()
+					.getAppServerDataSource(dsLookup.getDataSource())
+					.getConnection();
+
+
+		} catch (Exception ex) {
+			throw ex;
+		}
+
+		return manualConnection;
+
 	}
-	
-	return manualConnection;
-	
-}
 
 
 	private String getDbSchemaName() {

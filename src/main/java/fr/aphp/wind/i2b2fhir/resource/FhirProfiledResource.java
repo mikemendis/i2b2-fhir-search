@@ -146,7 +146,7 @@ public class FhirProfiledResource {
 	private String createFhirSearchQuery() {
 		String tmp = "";
 		if(this.fhirSearchQuery != null){
-		tmp += "&" + this.fhirSearchQuery ;  	
+			tmp += "&" + this.fhirSearchQuery ;  	
 		}
 		return tmp;
 	}
@@ -156,10 +156,18 @@ public class FhirProfiledResource {
 		DateTimeFormatter fmt = ISODateTimeFormat.dateTime();
 		;
 		if (this.happensBeforeDate != null) {
-			tmp += "&date=" + "lt" + fmt.print(new DateTime(this.happensBeforeDate));
+			//tmp += "&date=" +
+			tmp += "=lt" + fmt.print(new DateTime(this.happensBeforeDate));
+
 		}
 		if (this.happensAfterDate != null) {
-			tmp += "&date=" + "gt" + fmt.print(new DateTime(this.happensAfterDate));
+			//	tmp += "&date="  +
+			if (this.happensBeforeDate != null) {
+				tmp += "gt";
+			} else {
+				tmp +=  "=gt" ;
+			}
+			tmp += fmt.print(new DateTime(this.happensAfterDate));
 		}
 		return tmp;
 	}
@@ -199,10 +207,10 @@ public class FhirProfiledResource {
 		boolean hasResult = true;
 
 		String query = this.fhirApiHost + this.profileResourceName + "?" 
-		+ this.getElementQuery() 
-		+ this.createFhirSearchQuery()
-		+ this.createDateFilterString() 
-		+ "&_count=" + this.fhirApiPagination + "&_pretty=false";
+				+ this.getElementQuery() 
+				+ this.createFhirSearchQuery()
+				+ this.createDateFilterString() 
+				+ "&_count=" + this.fhirApiPagination + "&_pretty=false";
 		while (hasResult) {
 			logger.info(String.format("FHIR query: %s", query));
 

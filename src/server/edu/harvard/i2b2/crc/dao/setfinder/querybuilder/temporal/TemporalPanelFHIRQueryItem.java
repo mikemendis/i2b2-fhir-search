@@ -42,6 +42,7 @@ import edu.harvard.i2b2.crc.datavo.pm.ConfigureType;
 //import edu.harvard.i2b2.crc.datavo.pm.ProjectType;
 import edu.harvard.i2b2.crc.datavo.setfinder.query.ItemType;
 import edu.harvard.i2b2.crc.datavo.setfinder.query.ItemType.ConstrainByDate;
+import edu.harvard.i2b2.crc.datavo.setfinder.query.ItemType.ConstrainByValue;
 import edu.harvard.i2b2.crc.datavo.setfinder.query.PanelType;
 import edu.harvard.i2b2.crc.datavo.setfinder.query.QueryDefinitionType;
 import edu.harvard.i2b2.crc.delegate.pm.CallPMUtil;
@@ -189,11 +190,13 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 				ResultSet rs = ps.executeQuery();
 
 				//int patient_num = 1000000005;
+				ArrayList concept_cd = new ArrayList();
 				while (rs.next()){
-					String concept_cd = rs.getString(1);
-					if (concept_cd.contains("."))
-						concept_cd = concept_cd.substring(concept_cd.lastIndexOf('.') + 1);
-					pidSet = callFHIRUsingQueryDef(cellData.getUrl(), concept_cd);
+					// = rs.getString(1);
+					if ( rs.getString(1).contains("code"))
+						concept_cd.add( rs.getString(1).substring(rs.getString(1).lastIndexOf("code") + 5));
+				}
+					pidSet = callFHIRUsingQueryDef(tableName, cellData.getUrl(), concept_cd);
 
 					log.info("Got " + pidSet.getSetList().size() + " patients from " + concept_cd);
 					for( I2b2Set t : pidSet){
@@ -210,7 +213,7 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 						query += "insert into " + TEMP_TABLE +" (PATIENT_ide,PATIENT_IDE_SOURCE) values ('"+t.getPatientUri()+"','FHIR')<*>";
 					}
 
-				}
+				
 			} catch (AxisFault e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -242,7 +245,7 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 
 	}
 
-	private I2b2SetList callFHIRUsingQueryDef(String url, String code) throws I2B2Exception, JAXBUtilException, AxisFault, UnirestException {
+	private I2b2SetList callFHIRUsingQueryDef(String resourceName, String url, ArrayList codes) throws I2B2Exception, JAXBUtilException, AxisFault, UnirestException {
 
 
 		//http://fhirtest.uhn.ca/baseDstu3/Patient?&_element=identifier&birthdate&date=lt1979-12-01T00:00:00.000-05:00&_count=500&_pretty=false
@@ -251,7 +254,7 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 
 		if (item == null)
 			return null;
-		String searchQuery = code.toLowerCase();
+		String searchQuery = "";
 
 		Date fromDate= parent.getFromDate();
 		Date toDate = parent.getToDate();
@@ -265,14 +268,21 @@ public class TemporalPanelFHIRQueryItem extends TemporalPanelItem {
 					toDate = timeDate.getDateTo().getValue().toGregorianCalendar().getTime();
 			}			
 		}
-		if (returnInstanceNum()||
-				hasItemDateConstraint()||
-				hasPanelDateConstraint()||
-				hasValueConstraint()||
-				hasPanelOccurrenceConstraint()) 
-			return crcUtil.callQueryDefinionType(searchQuery ,"patientSet",toDate, fromDate);
-		else
-			return crcUtil.callQueryDefinionType(searchQuery ,"encounterSet",toDate, fromDate);
+		if (item.getConstrainByValue() != null)
+		{
+			for (ConstrainByValue value: item.getConstrainByValue()) {
+				searchQuery += "&value-quantity=" + value.getValueConstraint(); 
+			}
+			
+		}
+	//	if (returnInstanceNum()||
+	//			hasItemDateConstraint()||
+	//			hasPanelDateConstraint()||
+	//			hasValueConstraint()||
+	//			hasPanelOccurrenceConstraint()) 
+			return crcUtil.callQueryDefinionType(resourceName, searchQuery, codes, "patientSet",toDate, fromDate);
+	//	else
+//			return crcUtil.callQueryDefinionType(resourceName, searchQuery, codes, "encounterSet",toDate, fromDate);
 
 	}
 

@@ -1,5 +1,6 @@
 package fr.aphp.wind.i2b2fhir.resource;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 public class FhirProfiledResourceBuilder {
@@ -15,6 +16,8 @@ public class FhirProfiledResourceBuilder {
 	private Integer fhirDstuVersion = 3;
 	private Date happensBeforeDate;
 	private Date happensAfterDate;
+	private String fhirTerminologyHost;
+	private ArrayList<String> codes;
 	
 	public FhirProfiledResourceBuilder withResourceName(String str){
 		this.resourceName = str;  
@@ -73,11 +76,24 @@ public class FhirProfiledResourceBuilder {
 		return this;
 	}
 	
+	public FhirProfiledResourceBuilder withFhirTerminologyHost(String str){
+		this.fhirTerminologyHost = str;  
+		return this;
+	}
+	
+	public FhirProfiledResourceBuilder withCodes(ArrayList<String> str){
+		this.codes = str;  
+		return this;
+	}
+	
 	public FhirProfiledResource build(){
 		FhirProfiledResource fpr = new FhirProfiledResource();
 		fpr.setResourceName(this.resourceName);
 		if(this.profileResourceName==null){//optionnal profiled
 			this.profileResourceName = this.resourceName;
+		}
+		if(this.fhirTerminologyHost==null){//optionnal, set a separate terminology host
+			this.fhirTerminologyHost = this.fhirApiHost;
 		}
 		//https://www.hl7.org/fhir/search.html#prefix
 		//date format(=xml format): yyyy-mm-ddThh:mm:ss[Z|(+|-)hh:mm]
@@ -92,6 +108,8 @@ public class FhirProfiledResourceBuilder {
 		fpr.setI2b2SetType(this.i2b2SetType);
 		fpr.setFhirSearchQuery(this.fhirSearchQuery);
 		fpr.setFhirDstuVersion(this.fhirDstuVersion);
+		fpr.setFhirTerminologyHost(this.fhirTerminologyHost);
+		fpr.setCodes(this.codes);//optionnal
 		
 		return fpr;
 		
